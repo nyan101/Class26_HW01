@@ -39,6 +39,7 @@ int main(int argc, char **argv)
 // 패킷 헤더에 대한 정보: http://www.netmanias.com/ko/post/blog/5372/ethernet-ip-tcp-ip/packet-header-ethernet-ip-tcp-ip
 void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
+    int idx, etherHdrLen, ipHdrLen, tcpHdrLen, totalHdrLen;
     struct ether_header *etherHdr;
     struct ip *ipHdr;
     struct tcphdr *tcpHdr;
@@ -47,6 +48,7 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
 
     /* ethernet header */
     etherHdr = (struct ether_header*)packet;
+    etherHdrLen = 14;
     printf("Source MAC       : %s\n", ether_ntoa(etherHdr->ether_shost));
     printf("Destination MAC  : %s\n", ether_ntoa(etherHdr->ether_dhost));
     
@@ -58,7 +60,8 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     }
 
     /* IP header */
-    ipHdr = (struct ip*)(packet + 14/*Ether_LEN*/);
+    ipHdr = (struct ip*)(packet + etherHdrLen);
+    ipHdrLen = 4*ipHdr->ip_hl;
     printf("Source IP        : %s\n", inet_ntoa(ipHdr->ip_src));
     printf("Destination IP   : %s\n", inet_ntoa(ipHdr->ip_dst));
 
@@ -70,10 +73,16 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     }
 
     /* TCP header */
-    tcpHdr = (struct tcphdr*)(packet + 14/*Ether_LEN*/ + 4*ipHdr->ip_hl/*IP_Header_LEN*/);
+    tcpHdr = (struct tcphdr*)(packet + etherHdrLen + ipHdrLen);
+    tcpHdrLen = 4*tcpHdr->th_off;
     printf("Source port      : %d\n", ntohs(tcpHdr->th_sport));
     printf("Destination port : %d\n", ntohs(tcpHdr->th_dport));
 
+    /* Data Part */
+    totalHdrLen = etherHdrLen + ipHdrLen + tcpHdrLen;
+    printf("Data(%4d bytes) :\n", pkthdr->caplen - totalHdrLen);
+    for(idx=totalHdrLen;idx < pkthdr->caplen;idx++)
+        printf("%02x ", packet[idx]);
 
-    printf("\n");
+    printf("\n\n\n");
 }    
